@@ -6,8 +6,14 @@ module Swagger
       class Generator
         attr_reader :config
 
-        def initialize(config)
-          @config = config
+        def initialize(config = nil, **options)
+          @config = if config
+            config
+          elsif options[:config]
+            options[:config]
+          else
+            Configuration.new(**options)
+          end
         end
 
         def generate
