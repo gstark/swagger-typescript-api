@@ -1,43 +1,274 @@
-# Swagger::Typescript::Api
+# swagger-typescript-api
 
-TODO: Delete this and the text below, and describe your gem
+A Ruby gem that generates TypeScript type definitions from OpenAPI 3.0 and 3.1 specifications.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/swagger/typescript/api`. To experiment with that code, run `bin/console` for an interactive prompt.
+> **Inspired by** [acacode/swagger-typescript-api](https://github.com/acacode/swagger-typescript-api) - The original JavaScript/TypeScript implementation that generates full API clients. This Ruby gem focuses specifically on generating TypeScript type definitions.
+
+## Features
+
+- **OpenAPI 3.0 & 3.1 Support** - Full support for both specification versions
+- **TypeScript Types** - Generates interfaces, type aliases, enums, unions, and intersections
+- **Nullable Types** - Proper handling of `nullable: true` and array-style nullables
+- **Custom Types** - Support for `x-ts-type` extension to use external TypeScript types
+- **JSDoc Comments** - Generates documentation comments from OpenAPI descriptions
+- **Flexible Output** - Configurable type prefixes, suffixes, and export keywords
+- **CLI & Library** - Use from command line or integrate into Ruby applications
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+Add to your Gemfile:
 
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+gem "swagger-typescript-api"
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Or install directly:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem install swagger-typescript-api
 ```
 
-## Usage
+## CLI Usage
 
-TODO: Write usage instructions here
+### Basic Usage
+
+```bash
+swagger-typescript-api generate --input openapi.yaml --output types.ts
+```
+
+### Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--input PATH` | `-i` | Path or URL to OpenAPI spec (YAML or JSON) |
+| `--output PATH` | `-o` | Output file path for generated types |
+| `--prefix PREFIX` | | Type name prefix (e.g., `I` for `IUser`) |
+| `--suffix SUFFIX` | | Type name suffix (e.g., `Type` for `UserType`) |
+| `--no-export` | | Suppress `export` keywords in output |
+| `--import TYPE=STATEMENT` | | Custom type imports (repeatable) |
+
+### Examples
+
+Generate types with a prefix:
+
+```bash
+swagger-typescript-api generate -i api.yaml -o types.ts --prefix I
+```
+
+Generate types from a URL:
+
+```bash
+swagger-typescript-api generate -i https://api.example.com/openapi.json -o types.ts
+```
+
+Add custom type imports:
+
+```bash
+swagger-typescript-api generate -i api.yaml -o types.ts \
+  --import "Dayjs=import { Dayjs } from 'dayjs';" \
+  --import "Decimal=import { Decimal } from 'decimal.js';"
+```
+
+Check version:
+
+```bash
+swagger-typescript-api version
+```
+
+## Ruby API Usage
+
+### Basic Usage
+
+```ruby
+require "swagger/typescript/api"
+
+generator = Swagger::Typescript::Api::Generator.new(
+  input_path: "path/to/openapi.yaml",
+  output_path: "output/types.ts"
+)
+
+output = generator.generate
+```
+
+### With Configuration Object
+
+```ruby
+config = Swagger::Typescript::Api::Configuration.new(
+  input_path: "path/to/openapi.yaml",
+  output_path: "output/types.ts",
+  type_prefix: "I",
+  type_suffix: "",
+  export_types: true,
+  type_style: :type  # or :interface
+)
+
+generator = Swagger::Typescript::Api::Generator.new(config)
+output = generator.generate
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `input_path` | String | required | Path or URL to OpenAPI spec |
+| `output_path` | String | required | Output file path |
+| `type_prefix` | String | `""` | Prefix for type names |
+| `type_suffix` | String | `""` | Suffix for type names |
+| `export_types` | Boolean | `true` | Include `export` keyword |
+| `type_style` | Symbol | `:type` | `:type` or `:interface` |
+| `strict_nullable` | Boolean | `true` | Handle nullable types |
+| `strict_validation` | Boolean | `true` | Validate OpenAPI document |
+| `custom_type_imports` | Hash | `{}` | Custom type import statements |
+
+### Custom Type Imports
+
+Use external TypeScript types not defined in your OpenAPI spec:
+
+```ruby
+config = Swagger::Typescript::Api::Configuration.new(
+  input_path: "api.yaml",
+  output_path: "types.ts",
+  custom_type_imports: {
+    "Dayjs" => "import { Dayjs } from 'dayjs';",
+    "Decimal" => "import { Decimal } from 'decimal.js';"
+  }
+)
+```
+
+Then reference these in your OpenAPI spec using `x-ts-type`:
+
+```yaml
+components:
+  schemas:
+    Transaction:
+      type: object
+      properties:
+        amount:
+          x-ts-type: Decimal
+        createdAt:
+          x-ts-type: Dayjs
+```
+
+## Example
+
+### Input (OpenAPI 3.0)
+
+```yaml
+openapi: "3.0.0"
+info:
+  title: Pet Store API
+  version: "1.0.0"
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+        name:
+          type: string
+        tag:
+          type: string
+          nullable: true
+
+    Status:
+      type: string
+      enum:
+        - available
+        - pending
+        - sold
+
+    PetWithCategory:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+        - type: object
+          properties:
+            category:
+              $ref: "#/components/schemas/Category"
+```
+
+### Output (TypeScript)
+
+```typescript
+// Generated by swagger-typescript-api
+// Do not edit manually
+
+export type Pet = {
+  /** Unique identifier */
+  id: number;
+  name: string;
+  tag?: string | null;
+};
+
+export enum Status {
+  AVAILABLE = "available",
+  PENDING = "pending",
+  SOLD = "sold",
+}
+
+export type PetWithCategory = Pet & {
+  category?: Category;
+};
+```
+
+## Supported OpenAPI Features
+
+| Feature | Support |
+|---------|---------|
+| Primitive types (string, number, boolean) | Yes |
+| Objects with properties | Yes |
+| Required/optional properties | Yes |
+| Arrays | Yes |
+| Enums (string and numeric) | Yes |
+| `$ref` references | Yes |
+| `allOf` (intersections) | Yes |
+| `oneOf` / `anyOf` (unions) | Yes |
+| `nullable: true` | Yes |
+| Array-style nullable `[type, "null"]` | Yes |
+| `additionalProperties` | Yes |
+| `discriminator` for unions | Yes |
+| `x-ts-type` extension | Yes |
+| `description` as JSDoc | Yes |
+| OpenAPI 3.1 type arrays | Yes |
+
+## Error Handling
+
+The gem provides specific error classes:
+
+```ruby
+begin
+  generator.generate
+rescue Swagger::Typescript::Api::ParseError => e
+  # OpenAPI document parsing failed
+rescue Swagger::Typescript::Api::ValidationError => e
+  # Configuration or document validation failed
+rescue Swagger::Typescript::Api::UnsupportedSchemaError => e
+  # Unrecognized schema structure
+end
+```
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checking out the repo:
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```bash
+bin/setup          # Install dependencies
+rake test          # Run tests
+bin/console        # Interactive console
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/gstark/swagger-typescript-api. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/gstark/swagger-typescript-api/blob/main/CODE_OF_CONDUCT.md).
+Bug reports and pull requests are welcome at https://github.com/gstark/swagger-typescript-api.
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+MIT License - see [LICENSE.txt](LICENSE.txt)
 
-## Code of Conduct
+## Acknowledgments
 
-Everyone interacting in the Swagger::Typescript::Api project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/gstark/swagger-typescript-api/blob/main/CODE_OF_CONDUCT.md).
+This gem is inspired by [swagger-typescript-api](https://github.com/acacode/swagger-typescript-api), a popular JavaScript/TypeScript library for generating API clients from OpenAPI specifications. While the original focuses on generating complete HTTP clients, this Ruby gem specializes in generating TypeScript type definitions for use in any context.
