@@ -34,7 +34,7 @@ module Swagger
             end
 
             def inline_object
-              return "{}" if properties.empty? && additional_properties.nil?
+              return with_nullable("object") if properties.empty? && additional_properties.nil?
 
               body = format_body
               with_nullable("{\n#{body}\n}")

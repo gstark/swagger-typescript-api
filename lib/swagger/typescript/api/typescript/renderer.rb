@@ -13,21 +13,22 @@ module Swagger
             @template_dir = template_dir || DEFAULT_TEMPLATE_DIR
           end
 
-          def render(types, config)
+          def render(types, imports, config)
             template_path = File.join(@template_dir, "types.ts.erb")
             template = ERB.new(File.read(template_path), trim_mode: "-")
 
-            binding_context = create_binding(types, config)
+            binding_context = create_binding(types, imports, config)
             template.result(binding_context)
           end
 
           private
 
-          def create_binding(types, config)
+          def create_binding(types, imports, config)
             export_keyword = config.export_types ? "export " : ""
 
             binding.tap do |b|
               b.local_variable_set(:types, types)
+              b.local_variable_set(:imports, imports)
               b.local_variable_set(:config, config)
               b.local_variable_set(:export_keyword, export_keyword)
             end

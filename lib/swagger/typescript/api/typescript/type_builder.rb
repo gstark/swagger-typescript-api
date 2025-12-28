@@ -14,10 +14,13 @@ module Swagger
             "object" => :object
           }.freeze
 
+          attr_reader :used_custom_types
+
           def initialize(config, naming, document = nil)
             @config = config
             @naming = naming
             @document = document
+            @used_custom_types = Set.new
           end
 
           def build(schema, name = nil)
@@ -27,11 +30,30 @@ module Swagger
               return build_reference(schema)
             end
 
+            # Check for x-ts-type extension first
+            if schema.is_a?(Hash) && schema["x-ts-type"]
+              return build_custom_type(schema)
+            end
+
             nullable = extract_nullable(schema)
             build_type(schema, name, nullable)
           end
 
           private
+
+          def build_custom_type(schema)
+            type_name = schema["x-ts-type"]
+            nullable = extract_nullable(schema)
+            description = schema["description"]
+
+            @used_custom_types << type_name
+
+            Types::Custom.new(
+              type_name: type_name,
+              nullable: nullable,
+              description: description
+            )
+          end
 
           def build_reference(schema)
             ref = schema["$ref"]
@@ -209,6 +231,10 @@ module Swagger
             if type_name && OPENAPI_TO_TS.key?(type_name)
               ts_type = handle_format(schema, OPENAPI_TO_TS[type_name])
               Types::Primitive.new(type: ts_type, nullable: nullable, description: description)
+            elsif type_name && !type_name.empty?
+              # Treat unrecognized type names as custom types
+              @used_custom_types << type_name
+              Types::Custom.new(type_name: type_name, nullable: nullable, description: description)
             else
               Types::Primitive.new(type: :unknown, nullable: nullable, description: description)
             end

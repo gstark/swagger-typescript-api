@@ -14,8 +14,8 @@ module Swagger
           validate_config!
           document = load_document
           validate_document!(document)
-          types = build_types(document)
-          output = render(types)
+          types, imports = build_types(document)
+          output = render(types, imports)
           write_output(output)
           output
         end
@@ -43,14 +43,26 @@ module Swagger
           naming = TypeScript::Naming.new(config)
           type_builder = TypeScript::TypeBuilder.new(config, naming, document)
 
-          document.schemas.map do |name, schema|
+          types = document.schemas.map do |name, schema|
             type_builder.build(schema, name)
           end
+
+          imports = collect_imports(type_builder.used_custom_types)
+          [types, imports]
         end
 
-        def render(types)
+        def collect_imports(used_custom_types)
+          imports = []
+          used_custom_types.each do |type_name|
+            import_statement = config.import_for(type_name)
+            imports << import_statement if import_statement
+          end
+          imports.uniq.sort
+        end
+
+        def render(types, imports)
           renderer = TypeScript::Renderer.new
-          renderer.render(types, config)
+          renderer.render(types, imports, config)
         end
 
         def write_output(output)

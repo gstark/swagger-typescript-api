@@ -12,6 +12,7 @@ require "swagger/typescript/api/openapi/document"
 
 require "swagger/typescript/api/typescript/types/base"
 require "swagger/typescript/api/typescript/types/array"
+require "swagger/typescript/api/typescript/types/custom"
 require "swagger/typescript/api/typescript/types/enum"
 require "swagger/typescript/api/typescript/types/interface"
 require "swagger/typescript/api/typescript/types/intersection"

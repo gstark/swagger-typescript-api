@@ -11,7 +11,8 @@ module Swagger
           :export_types,
           :strict_nullable,
           :strict_validation,
-          :type_style
+          :type_style,
+          :custom_type_imports
 
         def initialize(
           input_path: nil,
@@ -21,7 +22,8 @@ module Swagger
           export_types: true,
           strict_nullable: true,
           strict_validation: true,
-          type_style: :type
+          type_style: :type,
+          custom_type_imports: {}
         )
           @input_path = input_path
           @output_path = output_path
@@ -31,10 +33,15 @@ module Swagger
           @strict_nullable = strict_nullable
           @strict_validation = strict_validation
           @type_style = type_style
+          @custom_type_imports = custom_type_imports
         end
 
         def use_interface?
           type_style == :interface
+        end
+
+        def import_for(type_name)
+          custom_type_imports[type_name]
         end
       end
     end
