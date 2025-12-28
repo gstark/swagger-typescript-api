@@ -21,10 +21,12 @@ module Swagger
           private
 
           def pascalize(string)
+            return string if string.match?(/^[A-Z][a-zA-Z0-9]*$/)
+
             string
               .gsub(/[^a-zA-Z0-9_]/, " ")
               .split(/[\s_]+/)
-              .map(&:capitalize)
+              .map { |word| word[0]&.upcase.to_s + word[1..].to_s }
               .join
           end
 

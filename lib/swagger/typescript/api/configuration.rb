@@ -10,7 +10,8 @@ module Swagger
           :type_suffix,
           :export_types,
           :strict_nullable,
-          :strict_validation
+          :strict_validation,
+          :type_style
 
         def initialize(
           input_path: nil,
@@ -19,7 +20,8 @@ module Swagger
           type_suffix: "",
           export_types: true,
           strict_nullable: true,
-          strict_validation: true
+          strict_validation: true,
+          type_style: :type
         )
           @input_path = input_path
           @output_path = output_path
@@ -28,6 +30,11 @@ module Swagger
           @export_types = export_types
           @strict_nullable = strict_nullable
           @strict_validation = strict_validation
+          @type_style = type_style
+        end
+
+        def use_interface?
+          type_style == :interface
         end
       end
     end

@@ -3,12 +3,14 @@
 
 <% types.each do |type| -%>
 <% if type.is_a?(Swagger::Typescript::Api::TypeScript::Types::Interface) && type.name -%>
-<% if type.description -%>
-/**
- * <%= type.description.gsub("\n", "\n * ") %>
- */
+<% if type.description && !type.description.strip.empty? -%>
+/** <%= type.description %> */
 <% end -%>
+<% if config.use_interface? -%>
 <%= export_keyword %><%= type.interface_definition %>
+<% else -%>
+<%= export_keyword %><%= type.type_definition %>
+<% end -%>
 
 <% elsif type.is_a?(Swagger::Typescript::Api::TypeScript::Types::Enum) && type.name -%>
 <%= export_keyword %><%= type.enum_definition %>

@@ -15,12 +15,12 @@ class Swagger::Typescript::Api::TestGenerator < Minitest::Test
     generator = Swagger::Typescript::Api::Generator.new(config)
     output = generator.generate
 
-    assert_includes output, "interface Pet {"
+    assert_includes output, "type Pet = {"
     assert_includes output, "id: number;"
     assert_includes output, "name: string;"
     assert_includes output, "tag?: string | null;"
 
-    assert_includes output, "interface Category {"
+    assert_includes output, "type Category = {"
 
     assert_includes output, "enum Status {"
     assert_includes output, "AVAILABLE"
@@ -61,8 +61,8 @@ class Swagger::Typescript::Api::TestGenerator < Minitest::Test
     generator = Swagger::Typescript::Api::Generator.new(config)
     output = generator.generate
 
-    assert_includes output, "interface IPetType {"
-    assert_includes output, "interface ICategoryType {"
+    assert_includes output, "type IPetType = {"
+    assert_includes output, "type ICategoryType = {"
   ensure
     output_file.close
     output_file.unlink

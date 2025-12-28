@@ -41,7 +41,7 @@ module Swagger
 
         def build_types(document)
           naming = TypeScript::Naming.new(config)
-          type_builder = TypeScript::TypeBuilder.new(config, naming)
+          type_builder = TypeScript::TypeBuilder.new(config, naming, document)
 
           document.schemas.map do |name, schema|
             type_builder.build(schema, name)

@@ -14,19 +14,63 @@ module Swagger
             "object" => :object
           }.freeze
 
-          def initialize(config, naming)
+          def initialize(config, naming, document = nil)
             @config = config
             @naming = naming
+            @document = document
           end
 
           def build(schema, name = nil)
             return build_unknown if schema.nil?
+
+            if schema.is_a?(Hash) && schema["$ref"]
+              return build_reference(schema)
+            end
 
             nullable = extract_nullable(schema)
             build_type(schema, name, nullable)
           end
 
           private
+
+          def build_reference(schema)
+            ref = schema["$ref"]
+            type_name = extract_type_name_from_ref(ref)
+
+            return build_unknown unless type_name
+
+            nullable = schema["nullable"] == true
+            description = schema["description"]
+
+            # Look up the referenced schema's description if not provided
+            if description.nil? || description.empty?
+              description = lookup_ref_description(ref)
+            end
+
+            Types::Reference.new(
+              ref_name: @naming.format_type_name(type_name),
+              nullable: nullable,
+              description: description
+            )
+          end
+
+          def lookup_ref_description(ref)
+            return nil unless @document && ref.is_a?(String)
+
+            if ref.start_with?("#/components/schemas/")
+              schema_name = ref.split("/").last
+              target_schema = @document.schemas[schema_name]
+              target_schema&.dig("description")
+            end
+          end
+
+          def extract_type_name_from_ref(ref)
+            return nil unless ref.is_a?(String)
+
+            if ref.start_with?("#/components/schemas/")
+              ref.split("/").last
+            end
+          end
 
           def extract_nullable(schema)
             return false unless schema.is_a?(Hash)
@@ -73,6 +117,7 @@ module Swagger
           def build_union(schema, key, name, nullable = false)
             variants = schema[key] || []
             types = variants.map { |s| build(s) }
+            description = schema["description"]
 
             discriminator = nil
             if schema["discriminator"]
@@ -86,17 +131,20 @@ module Swagger
               name: name ? @naming.format_type_name(name) : nil,
               types: types,
               discriminator: discriminator,
-              nullable: nullable
+              nullable: nullable,
+              description: description
             )
           end
 
           def build_intersection(schema, name, nullable = false)
             types = (schema["allOf"] || []).map { |s| build(s) }
+            description = schema["description"]
 
             Types::Intersection.new(
               name: name ? @naming.format_type_name(name) : nil,
               types: types,
-              nullable: nullable
+              nullable: nullable,
+              description: description
             )
           end
 
@@ -104,12 +152,14 @@ module Swagger
             values = schema["enum"] || []
             type = normalize_type(schema)
             string_enum = type == "string" || values.all? { |v| v.is_a?(String) }
+            description = schema["description"]
 
             Types::Enum.new(
               name: name ? @naming.format_type_name(name) : nil,
               values: values,
               string_enum: string_enum,
-              nullable: nullable
+              nullable: nullable,
+              description: description
             )
           end
 
@@ -142,22 +192,25 @@ module Swagger
           def build_array(schema, name = nil, nullable = false)
             item_schema = schema["items"]
             item_type = item_schema ? build(item_schema) : Types::Primitive.new(type: :unknown)
+            description = schema["description"]
 
             Types::Array.new(
               name: name ? @naming.format_type_name(name) : nil,
               item_type: item_type,
-              nullable: nullable
+              nullable: nullable,
+              description: description
             )
           end
 
           def build_primitive(schema, nullable = false)
             type_name = normalize_type(schema)
+            description = schema["description"]
 
             if type_name && OPENAPI_TO_TS.key?(type_name)
               ts_type = handle_format(schema, OPENAPI_TO_TS[type_name])
-              Types::Primitive.new(type: ts_type, nullable: nullable)
+              Types::Primitive.new(type: ts_type, nullable: nullable, description: description)
             else
-              Types::Primitive.new(type: :unknown, nullable: nullable)
+              Types::Primitive.new(type: :unknown, nullable: nullable, description: description)
             end
           end
 

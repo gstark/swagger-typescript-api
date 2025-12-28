@@ -15,7 +15,6 @@ module Swagger
 
           def initialize(path_or_url)
             @raw_document = load_document(path_or_url)
-            resolve_refs!
           end
 
           def schemas
@@ -28,6 +27,21 @@ module Swagger
 
           def errors
             []
+          end
+
+          def resolve_ref(ref)
+            return nil unless ref.is_a?(String) && ref.start_with?("#/")
+
+            parts = ref.sub("#/", "").split("/")
+            parts.reduce(@raw_document) do |doc, part|
+              doc&.dig(part)
+            end
+          end
+
+          def ref_to_type_name(ref)
+            return nil unless ref.is_a?(String) && ref.start_with?("#/components/schemas/")
+
+            ref.split("/").last
           end
 
           private
@@ -69,49 +83,6 @@ module Swagger
             uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
           rescue URI::InvalidURIError
             false
-          end
-
-          def resolve_refs!
-            @ref_cache = {}
-            deep_resolve(@raw_document)
-          end
-
-          def deep_resolve(obj, path = [])
-            case obj
-            when Hash
-              if obj.key?("$ref") && obj["$ref"].is_a?(String)
-                resolve_ref(obj["$ref"], obj)
-              else
-                obj.each { |k, v| obj[k] = deep_resolve(v, path + [k]) }
-                obj
-              end
-            when Array
-              obj.map.with_index { |v, i| deep_resolve(v, path + [i]) }
-            else
-              obj
-            end
-          end
-
-          def resolve_ref(ref, original_obj)
-            return @ref_cache[ref] if @ref_cache.key?(ref)
-
-            return original_obj unless ref.start_with?("#/")
-
-            parts = ref.sub("#/", "").split("/")
-            resolved = parts.reduce(@raw_document) do |doc, part|
-              doc&.dig(part)
-            end
-
-            return original_obj if resolved.nil?
-
-            @ref_cache[ref] = resolved
-
-            extra_fields = original_obj.except("$ref")
-            if extra_fields.any?
-              resolved.merge(extra_fields)
-            else
-              resolved
-            end
           end
         end
       end

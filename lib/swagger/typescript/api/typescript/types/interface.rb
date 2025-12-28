@@ -28,6 +28,11 @@ module Swagger
               "interface #{name} {\n#{body}\n}"
             end
 
+            def type_definition
+              body = format_body
+              "type #{name} = {\n#{body}\n}"
+            end
+
             def inline_object
               return "{}" if properties.empty? && additional_properties.nil?
 
@@ -38,10 +43,16 @@ module Swagger
             private
 
             def format_body
-              lines = properties.map do |prop_name, prop_type|
+              lines = []
+
+              properties.each do |prop_name, prop_type|
+                if prop_type.description && !prop_type.description.empty?
+                  lines << "  /** #{prop_type.description} */"
+                end
+
                 optional = required.include?(prop_name) ? "" : "?"
                 formatted_name = format_property_name(prop_name)
-                "  #{formatted_name}#{optional}: #{prop_type.to_typescript};"
+                lines << "  #{formatted_name}#{optional}: #{prop_type.to_typescript};"
               end
 
               if additional_properties
