@@ -10,7 +10,8 @@ module Swagger
             "number" => :number,
             "integer" => :number,
             "boolean" => :boolean,
-            "null" => :null
+            "null" => :null,
+            "object" => :object
           }.freeze
 
           def initialize(config, naming)
@@ -21,20 +22,44 @@ module Swagger
           def build(schema, name = nil)
             return build_unknown if schema.nil?
 
-            nullable = schema.respond_to?(:nullable?) && schema.nullable?
+            nullable = extract_nullable(schema)
             build_type(schema, name, nullable)
           end
 
           private
 
+          def extract_nullable(schema)
+            return false unless schema.is_a?(Hash)
+
+            return true if schema["nullable"] == true
+
+            type = schema["type"]
+            if type.is_a?(Array)
+              type.include?("null")
+            else
+              false
+            end
+          end
+
+          def normalize_type(schema)
+            type = schema["type"]
+            if type.is_a?(Array)
+              type.reject { |t| t == "null" }.first
+            else
+              type
+            end
+          end
+
           def build_type(schema, name, nullable = false)
-            if schema.respond_to?(:one_of) && schema.one_of&.any?
-              build_union(schema, name, nullable)
-            elsif schema.respond_to?(:all_of) && schema.all_of&.any?
+            return build_unknown unless schema.is_a?(Hash)
+
+            if schema["oneOf"]&.any?
+              build_union(schema, "oneOf", name, nullable)
+            elsif schema["allOf"]&.any?
               build_intersection(schema, name, nullable)
-            elsif schema.respond_to?(:any_of) && schema.any_of&.any?
-              build_union(schema, name, nullable)
-            elsif schema.respond_to?(:enum) && schema.enum&.any?
+            elsif schema["anyOf"]&.any?
+              build_union(schema, "anyOf", name, nullable)
+            elsif schema["enum"]&.any?
               build_enum(schema, name, nullable)
             elsif object_schema?(schema)
               build_interface(schema, name, nullable)
@@ -45,15 +70,15 @@ module Swagger
             end
           end
 
-          def build_union(schema, name, nullable = false)
-            variants = schema.one_of || schema.any_of || []
+          def build_union(schema, key, name, nullable = false)
+            variants = schema[key] || []
             types = variants.map { |s| build(s) }
 
             discriminator = nil
-            if schema.respond_to?(:discriminator) && schema.discriminator
+            if schema["discriminator"]
               discriminator = {
-                property_name: schema.discriminator.property_name,
-                mapping: schema.discriminator.mapping
+                property_name: schema["discriminator"]["propertyName"],
+                mapping: schema["discriminator"]["mapping"]
               }
             end
 
@@ -66,7 +91,7 @@ module Swagger
           end
 
           def build_intersection(schema, name, nullable = false)
-            types = schema.all_of.map { |s| build(s) }
+            types = (schema["allOf"] || []).map { |s| build(s) }
 
             Types::Intersection.new(
               name: name ? @naming.format_type_name(name) : nil,
@@ -76,8 +101,9 @@ module Swagger
           end
 
           def build_enum(schema, name, nullable = false)
-            values = schema.enum
-            string_enum = schema.type == "string" || values.all? { |v| v.is_a?(String) }
+            values = schema["enum"] || []
+            type = normalize_type(schema)
+            string_enum = type == "string" || values.all? { |v| v.is_a?(String) }
 
             Types::Enum.new(
               name: name ? @naming.format_type_name(name) : nil,
@@ -89,24 +115,18 @@ module Swagger
 
           def build_interface(schema, name, nullable = false)
             properties = {}
-            required = []
+            required = schema["required"] || []
 
-            if schema.respond_to?(:properties) && schema.properties
-              schema.properties.each do |prop_name, prop_schema|
-                properties[prop_name] = build(prop_schema)
-              end
+            (schema["properties"] || {}).each do |prop_name, prop_schema|
+              properties[prop_name] = build(prop_schema)
             end
 
-            required = schema.required.to_a if schema.respond_to?(:required) && schema.required
-
             additional = nil
-            if schema.respond_to?(:additional_properties)
-              ap = schema.additional_properties
-              if ap == true
-                additional = Types::Primitive.new(type: :unknown)
-              elsif ap.respond_to?(:type) || ap.respond_to?(:properties)
-                additional = build(ap)
-              end
+            ap = schema["additionalProperties"]
+            if ap == true
+              additional = Types::Primitive.new(type: :unknown)
+            elsif ap.is_a?(Hash)
+              additional = build(ap)
             end
 
             Types::Interface.new(
@@ -114,13 +134,13 @@ module Swagger
               properties: properties,
               required: required,
               additional_properties: additional,
-              description: schema.respond_to?(:description) ? schema.description : nil,
+              description: schema["description"],
               nullable: nullable
             )
           end
 
           def build_array(schema, name = nil, nullable = false)
-            item_schema = schema.items
+            item_schema = schema["items"]
             item_type = item_schema ? build(item_schema) : Types::Primitive.new(type: :unknown)
 
             Types::Array.new(
@@ -131,7 +151,7 @@ module Swagger
           end
 
           def build_primitive(schema, nullable = false)
-            type_name = schema.respond_to?(:type) ? schema.type : nil
+            type_name = normalize_type(schema)
 
             if type_name && OPENAPI_TO_TS.key?(type_name)
               ts_type = handle_format(schema, OPENAPI_TO_TS[type_name])
@@ -146,9 +166,10 @@ module Swagger
           end
 
           def handle_format(schema, base_type)
-            return base_type unless schema.respond_to?(:format) && schema.format
+            format = schema["format"]
+            return base_type unless format
 
-            case schema.format
+            case format
             when "date", "date-time"
               :string
             when "int32", "int64", "float", "double"
@@ -159,15 +180,17 @@ module Swagger
           end
 
           def object_schema?(schema)
-            return true if schema.respond_to?(:type) && schema.type == "object"
-            return true if schema.respond_to?(:properties) && schema.properties&.any?
+            type = normalize_type(schema)
+            return true if type == "object"
+            return true if schema["properties"]&.any?
 
             false
           end
 
           def array_schema?(schema)
-            return true if schema.respond_to?(:type) && schema.type == "array"
-            return true if schema.respond_to?(:items) && schema.items
+            type = normalize_type(schema)
+            return true if type == "array"
+            return true if schema.key?("items")
 
             false
           end

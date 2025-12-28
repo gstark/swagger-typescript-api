@@ -9,7 +9,8 @@ module Swagger
           :type_prefix,
           :type_suffix,
           :export_types,
-          :strict_nullable
+          :strict_nullable,
+          :strict_validation
 
         def initialize(
           input_path: nil,
@@ -17,7 +18,8 @@ module Swagger
           type_prefix: "",
           type_suffix: "",
           export_types: true,
-          strict_nullable: true
+          strict_nullable: true,
+          strict_validation: true
         )
           @input_path = input_path
           @output_path = output_path
@@ -25,6 +27,7 @@ module Swagger
           @type_suffix = type_suffix
           @export_types = export_types
           @strict_nullable = strict_nullable
+          @strict_validation = strict_validation
         end
       end
     end

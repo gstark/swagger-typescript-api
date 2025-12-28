@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.authors = ["Gavin Stark"]
   spec.email = ["gavin@gstark.com"]
 
-  spec.summary = "Generate TypeScript types from OpenAPI 3.0 specifications"
-  spec.description = "A Ruby gem that reads OpenAPI 3.0 specifications and generates TypeScript type definitions including interfaces, enums, unions, and intersections."
+  spec.summary = "Generate TypeScript types from OpenAPI 3.0/3.1 specifications"
+  spec.description = "A Ruby gem that reads OpenAPI 3.0 and 3.1 specifications and generates TypeScript type definitions including interfaces, enums, unions, and intersections."
   spec.homepage = "https://github.com/gstark/swagger-typescript-api"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
@@ -31,6 +31,5 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "openapi3_parser", "~> 0.10"
   spec.add_dependency "thor", "~> 1.3"
 end

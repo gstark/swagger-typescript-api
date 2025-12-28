@@ -33,6 +33,7 @@ module Swagger
 
         def validate_document!(document)
           return if document.valid?
+          return unless config.strict_validation
 
           error_messages = document.errors.map(&:message).join(", ")
           raise ValidationError, "Invalid OpenAPI document: #{error_messages}"
